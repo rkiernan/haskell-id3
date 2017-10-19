@@ -1,3 +1,6 @@
-Ryan Kiernan, Nick Condron
+# id3tag
 
-An id3 parser implemented in Haskell.
+### Contributors
+
+Ryan Kiernan
+Nick Condron
