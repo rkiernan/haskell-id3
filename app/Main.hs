@@ -1,6 +1,7 @@
 module Main where
 
-import Lib
+import qualified Data.ByteString.Char8 as C
+import ID3v1
 
 main :: IO ()
-main = someFunc
+main = putStrLn . show $ emptyID3v1

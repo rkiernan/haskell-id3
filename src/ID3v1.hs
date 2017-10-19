@@ -1,0 +1,36 @@
+{-# LANGUAGE OverloadedStrings #-}
+
+module ID3v1
+    ( ID3v1
+    , emptyID3v1
+    , title
+    ) where
+
+import Data.Word (Word8)
+import Data.Maybe (maybe)
+import qualified Data.ByteString.Char8 as C
+
+import ID3v1.Genre
+
+data ID3v1
+    = ID3v1 {
+    title   :: C.ByteString,
+    album   :: C.ByteString,
+    year    :: C.ByteString,
+    comment :: C.ByteString,
+    track   :: Maybe Word8, -- ID3v1.1 adds track field
+    genre   :: Word8
+    } deriving Eq
+
+emptyID3v1 :: ID3v1
+emptyID3v1 = ID3v1 "" "" "" "" Nothing 255
+
+
+instance Show ID3v1 where
+    show t
+        = ("Title: " ++ (show $ title t))               ++"\n"++
+          ("Album: " ++ (show $ album t))               ++"\n"++
+          ("Year: " ++ (show $ year t))                 ++"\n"++
+          ("Comment: " ++ (show $ comment t))           ++"\n"++
+          (maybe "" (("Track: " ++) . (++"\n") . show) (track t))  ++
+          ("Genre: " ++ (toGenre . genre $ t))
