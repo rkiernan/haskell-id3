@@ -15,6 +15,7 @@ import Tag
 data ID3v1
     = ID3v1 {
     title   :: C.ByteString,
+    artist  :: C.ByteString,
     album   :: C.ByteString,
     year    :: C.ByteString,
     comment :: C.ByteString,
@@ -23,7 +24,7 @@ data ID3v1
     } deriving Eq
 
 emptyID3v1 :: ID3v1
-emptyID3v1 = ID3v1 "" "" "" "" Nothing 255
+emptyID3v1 = ID3v1 "" "" "" "" "" Nothing 255
 
 instance Tag ID3v1 where
     version t =
@@ -33,9 +34,13 @@ instance Tag ID3v1 where
 
 instance Show ID3v1 where
     show t =
-        ("Title: " ++ (show $ title t))               ++"\n"++
-        ("Album: " ++ (show $ album t))               ++"\n"++
-        ("Year: " ++ (show $ year t))                 ++"\n"++
-        ("Comment: " ++ (show $ comment t))           ++
-        (maybe "" (("\nTrack: " ++) . show) (track t))  ++
-        (maybe "" (("\nGenre: " ++) . show) (toGenre . genre $ t))
+        ("Title: " ++ (form $ title t))                ++"\n"++
+        ("Artist: " ++ (form $ artist t))              ++"\n"++
+        ("Album: " ++ (form $ album t))                ++"\n"++
+        ("Year: " ++ (form $ year t))                  ++"\n"++
+        ("Comment: " ++ (form $ comment t))            ++
+        (maybe "" (("\nTrack: " ++) . show) (track t)) ++
+        (maybe "" ("\nGenre: " ++) (toGenre . genre $ t))
+        where
+            -- convert bytestring to initial printable ascii chars
+            form = show . B.takeWhile (\c -> c >= 20 && c < 127)
