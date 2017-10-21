@@ -3,7 +3,6 @@
 module ID3v1
     ( ID3v1
     , emptyID3v1
-    , title
     ) where
 
 import Data.Word (Word8)
@@ -27,10 +26,10 @@ emptyID3v1 = ID3v1 "" "" "" "" Nothing 255
 
 
 instance Show ID3v1 where
-    show t
-        = ("Title: " ++ (show $ title t))               ++"\n"++
-          ("Album: " ++ (show $ album t))               ++"\n"++
-          ("Year: " ++ (show $ year t))                 ++"\n"++
-          ("Comment: " ++ (show $ comment t))           ++"\n"++
-          (maybe "" (("Track: " ++) . (++"\n") . show) (track t))  ++
-          ("Genre: " ++ (toGenre . genre $ t))
+    show t =
+        ("Title: " ++ (show $ title t))               ++"\n"++
+        ("Album: " ++ (show $ album t))               ++"\n"++
+        ("Year: " ++ (show $ year t))                 ++"\n"++
+        ("Comment: " ++ (show $ comment t))           ++
+        (maybe "" (("\nTrack: " ++) . show) (track t))  ++
+        (maybe "" (("\nGenre: " ++) . show) (toGenre . genre $ t))
