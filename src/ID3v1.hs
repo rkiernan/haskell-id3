@@ -10,6 +10,7 @@ import Data.Maybe (maybe)
 import qualified Data.ByteString.Char8 as C
 
 import ID3v1.Genre
+import Tag
 
 data ID3v1
     = ID3v1 {
@@ -24,6 +25,11 @@ data ID3v1
 emptyID3v1 :: ID3v1
 emptyID3v1 = ID3v1 "" "" "" "" Nothing 255
 
+instance Tag ID3v1 where
+    version t =
+        case (track t) of
+            Just _ -> "ID3v1.1"
+            Nothing -> "ID3v1"
 
 instance Show ID3v1 where
     show t =

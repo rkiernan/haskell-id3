@@ -15,7 +15,7 @@ cabal-version:       >=1.10
 
 library
   hs-source-dirs:      src
-  exposed-modules:     ID3v1, ID3v1.Genre
+  exposed-modules:     ID3v1, ID3v1.Genre, Tag
   build-depends:       base >= 4.7 && < 5, bytestring
   default-language:    Haskell2010
 
