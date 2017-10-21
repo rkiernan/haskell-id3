@@ -1,7 +1,13 @@
 module Main where
 
-import qualified Data.ByteString.Char8 as C
+import qualified Data.ByteString as B
+import Data.Attoparsec.ByteString
+
 import ID3v1
 
 main :: IO ()
-main = putStrLn . show $ emptyID3v1
+main = do
+    tag <- B.readFile "res/id3v1-0.tag"
+    case parseOnly id3v1 tag of
+        Left  s -> putStrLn s
+        Right r -> putStrLn (show r)
