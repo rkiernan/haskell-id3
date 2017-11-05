@@ -16,15 +16,14 @@ import Data.Attoparsec.ByteString
 import ID3v1.Genre
 import Tag
 
-data ID3v1
-    = ID3v1 {
-    title   :: C.ByteString,
-    artist  :: C.ByteString,
-    album   :: C.ByteString,
-    year    :: C.ByteString,
-    comment :: C.ByteString,
-    track   :: Maybe Word8, -- ID3v1.1 adds track field
-    genre   :: Word8
+data ID3v1 = ID3v1
+    { title   :: C.ByteString
+    , artist  :: C.ByteString
+    , album   :: C.ByteString
+    , year    :: C.ByteString
+    , comment :: C.ByteString
+    , track   :: Maybe Word8 -- ID3v1.1 adds track field
+    , genre   :: Word8
     } deriving Eq
 --TODO add support for ID3v1.2 which adds extended tag
 
