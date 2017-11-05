@@ -13,7 +13,6 @@ import qualified Data.ByteString.Char8 as C
 import qualified Data.ByteString as B
 import Data.Attoparsec.ByteString
 
-import ID3v1.Genre
 import Tag
 
 data ID3v1_2
@@ -35,7 +34,7 @@ id3v1_2 = do
     string "TAG+"
     t <- take 60
     a <- take 60
-    b <- take 30
+    b <- take 60
     s <- anyWord8
     g <- take 30
     t1 <- take 6
@@ -51,7 +50,7 @@ instance Show ID3v1_2 where
         ("Title: " ++ (form $ title t))                ++"\n"++
         ("Artist: " ++ (form $ artist t))              ++"\n"++
         ("Album: " ++ (form $ album t))                ++"\n"++
-        (("Speed: " ++) . show) (speed t) ++
+        (("Speed: " ++) . show) (speed t)              ++"\n"++
         ("Genre: " ++ (form $ genre t))                ++"\n"++
         ("Start: " ++ (form $ start_time t))           ++"\n"++
         ("End: " ++ (form $ end_time t))
