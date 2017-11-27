@@ -30,8 +30,8 @@ data Header = Header
       }
 
 data ExtHeader = ExtHeader
-    { extSize :: Int
-    , crcData :: Bool
+    { extSize :: Int,
+    , crcData :: Bool,
     , padding :: Int,
       crcData :: Maybe C.ByteString
     }
@@ -44,10 +44,17 @@ data FrameHeader = FrameHeader
     fileAlterPreservation :: Bool,
     readOnly :: Bool,
     compression :: Bool,
-    encryption :: Boool,
+    encryption :: Bool,
     groupingIdentity :: Bool
     }
 
+data UniqueFileIdentifier = UniqueFileIdentifier
+    {
+    ownerIdentifier :: C.ByteString,
+    identifer :: C.ByteString
+    }
+
+-- assuming the indexing of testBit starts at the left (testbit [01] 1 -> true)
 toNumber :: C.ByteString -> Int -> Int -> Int
 toNumber bs remaining size =
   if remaining > 0
@@ -57,6 +64,11 @@ toNumber bs remaining size =
       else
         toNumber bs (remaining-1) size
   else 0
+
+-- popCount from data.bits, gives set bits
+notEmpty :: Word8 -> Bool
+notEmpty w = popCount w == 0
+
 
 -- for weird header sizing
 --sizeToNumber bs remaining multiplierOffset size =
@@ -98,7 +110,7 @@ extHeader = do
     return ExtHeader hSize crcFlag pSize crcData
 
 frameHeader :: Parser FrameHeader
-frame = do
+frameHeader = do
   frameID <- take 4
   size <- take 4
   flags1 <- anyWord8
@@ -111,3 +123,7 @@ frame = do
   let groupingIdentity = testBit flags2 2
   let parsedSize = toNumber size 32 32
   return FrameHeader frameID parsedSize tagAlterPreservation fileAlterPreservation readOnly compression encryption groupingIdentity
+
+  uniqueFileIdentifier :: parser UniqueFileIdentifier
+  uniqueFileIdentifier = do
+    ownerIdentifier = takeWhile notEmpty
