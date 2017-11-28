@@ -60,11 +60,16 @@ data TextInformation = TextInformation
     information :: C.ByteString
     }
 
+data URL = URL
+    {
+    url :: C.ByteString
+    }
+
 -- assuming the indexing of testBit starts at the left (testbit [01] 1 -> true)
 toNumber :: C.ByteString -> Int -> Int -> Int
 toNumber bs remaining size =
-  if remaining > 0
-    if testBit bs remaining-1
+  if remaining > 0 then
+    if testBit bs (remaining-1)
       then
         2^(size-remaining) + toNumber bs (remaining-1) size
       else
@@ -77,13 +82,21 @@ notEmpty w = (popCount w) > 0
 
 -- for weird header sizing, size should be 28 each time
 -- most significant bytes are not counted
---sizeToNumber :: C.ByteString -> Int -> Int -> Int
---sizeToNumber bs size = sizeToNumberAux bs size size 1 0
+sizeToNumber :: C.ByteString -> Int -> Int
+sizeToNumber bs size = sizeToNumberAux bs size size 1 0
 
---sizeToNumberAux bs size remaining bit power =
---  if remaining > 0
---  if bit == 8 then sizeToNumberAux bs size  1 power
---  else 2^(size-remaining) + to
+sizeToNumberAux bs size remaining bit power =
+  if remaining > 0 then
+    if bit == 8
+      then
+        sizeToNumberAux bs size (remaining-1) 1 power
+      else
+        if testBit bs (remaining-1)
+          then
+            2^(power) + sizeToNumberAux bs size (remaining-1) (bit+1) (power+1)
+          else
+            sizeToNumberAux bs size (remaining-1) (bit+1) (power+1)
+  else 0
 
 header :: Parser Header
 header = do
@@ -95,7 +108,7 @@ header = do
   let unsync = testBit flags 0
   let extended = testBit flags 1
   let experimental = testBit flags 2
-  let sizeResult = 0 --TODO METHOD SIZE -> INT
+  let sizeResult = sizeToNumber size 28
   return $ Header majorVersion minorVersion unsync extended experimental sizeResult
 
 id3v2 :: Parser ID3v2
@@ -138,8 +151,12 @@ frameBody UFID l = do
     return $ UniqueFileIdentifier ownerIdentifier identifier
 
 -- since all text frames have the same format, it makes sense to have one parser
--- for TALB, TIT2, etc. 
+-- for TALB, TIT2, etc.
 frameBody TEXT l = do
   encoding <- anyWord8
   info <- take (l -11) -- 10 for header and one for encoding
   return $ TEXT encoding info
+
+frameBody URL l = do
+  url <- take (l-10)
+  return $ URL url
