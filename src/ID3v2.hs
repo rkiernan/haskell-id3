@@ -54,6 +54,12 @@ data UniqueFileIdentifier = UniqueFileIdentifier
     identifer :: C.ByteString
     }
 
+data TextInformation = TextInformation
+    {
+    encoding :: Word8,
+    information :: C.ByteString
+    }
+
 -- assuming the indexing of testBit starts at the left (testbit [01] 1 -> true)
 toNumber :: C.ByteString -> Int -> Int -> Int
 toNumber bs remaining size =
@@ -67,16 +73,17 @@ toNumber bs remaining size =
 
 -- popCount from data.bits, gives set bits
 notEmpty :: Word8 -> Bool
-notEmpty w = popCount w == 0
+notEmpty w = (popCount w) > 0
 
+-- for weird header sizing, size should be 28 each time
+-- most significant bytes are not counted
+--sizeToNumber :: C.ByteString -> Int -> Int -> Int
+--sizeToNumber bs size = sizeToNumberAux bs size size 1 0
 
--- for weird header sizing
---sizeToNumber bs remaining multiplierOffset size =
---  if remaining > 0 then
---    if remaining
---    let multiplier = size-remaining-multiplierOffset in
---    if
---  else 0
+--sizeToNumberAux bs size remaining bit power =
+--  if remaining > 0
+--  if bit == 8 then sizeToNumberAux bs size  1 power
+--  else 2^(size-remaining) + to
 
 header :: Parser Header
 header = do
@@ -88,7 +95,7 @@ header = do
   let unsync = testBit flags 0
   let extended = testBit flags 1
   let experimental = testBit flags 2
-
+  let sizeResult = 0 --TODO METHOD SIZE -> INT
   return $ Header majorVersion minorVersion unsync extended experimental sizeResult
 
 id3v2 :: Parser ID3v2
@@ -107,7 +114,7 @@ extHeader = do
     let crcFlag = testBit flags1 0
     let pSize = toNumber padding 32 32
     let crcData = if crcFlag then take 4 else Nothing
-    return ExtHeader hSize crcFlag pSize crcData
+    return $ ExtHeader hSize crcFlag pSize crcData
 
 frameHeader :: Parser FrameHeader
 frameHeader = do
@@ -122,8 +129,17 @@ frameHeader = do
   let encryption = testBit flags2 1
   let groupingIdentity = testBit flags2 2
   let parsedSize = toNumber size 32 32
-  return FrameHeader frameID parsedSize tagAlterPreservation fileAlterPreservation readOnly compression encryption groupingIdentity
+  return $ FrameHeader frameID parsedSize tagAlterPreservation fileAlterPreservation readOnly compression encryption groupingIdentity
 
-  uniqueFileIdentifier :: parser UniqueFileIdentifier
-  uniqueFileIdentifier = do
-    ownerIdentifier = takeWhile notEmpty
+frameBody :: FrameID -> Int -> Parser FrameBody
+frameBody UFID l = do
+    ownerIdentifier <- takeWhile notEmpty
+    identifier <- take (l - (C.length ownerIdentifier) -10) -- frame header has 10, so we subtract that
+    return $ UniqueFileIdentifier ownerIdentifier identifier
+
+-- since all text frames have the same format, it makes sense to have one parser
+-- for TALB, TIT2, etc. 
+frameBody TEXT l = do
+  encoding <- anyWord8
+  info <- take (l -11) -- 10 for header and one for encoding
+  return $ TEXT encoding info
