@@ -106,7 +106,7 @@ id3v2 = do
   h <- header
   e <- if extended h then extHeader >>= Just else return Nothing
   f <- many1 frame
-  return $ ID3v2 h e
+  return $ ID3v2 h e f
 
 header :: Parser Header
 header = do
@@ -157,16 +157,16 @@ frameHeader = do
 frameBody :: String -> Int -> Parser FrameBody
 frameBody "UFID" l = do
     ownerIdentifier <- AB.takeWhile notEmpty
-    identifier <- AB.take (l - (C.length ownerIdentifier) -10) -- frame header has 10, so we subtract that
+    identifier <- AB.take (l - (C.length ownerIdentifier))
     return $ UniqueFileIdentifier ownerIdentifier identifier
 
 -- since all text frames have the same format, it makes sense to have one parser
 -- for TALB, TIT2, etc.
 frameBody "TEXT" l = do
   encoding <- anyWord8
-  info <- AB.take (l -11) -- 10 for header and one for encoding
+  info <- AB.take (l -1) -- 10 for header and one for encoding
   return $ TEXT encoding info
 
 frameBody "URL" l = do
-  url <- AB.take (l-10)
+  url <- AB.take (l)
   return $ URL url
