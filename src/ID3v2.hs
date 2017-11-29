@@ -9,14 +9,16 @@ import Data.Word (Word8)
 import Data.Maybe (maybe)
 import qualified Data.ByteString.Char8 as C
 import qualified Data.ByteString as B
-import Data.Attoparsec.ByteString
+import Data.Attoparsec.ByteString as AB
 import Data.Bits
 
 import Tag
 
 data ID3v2 = ID3v2
-    { tagHeader :: Header
-    , tagExtHeader :: Maybe ExtHeader
+    {
+    tagHeader :: Header,
+    tagExtHeader :: Maybe ExtHeader,
+    frames :: [(FrameHeader, FrameBody)]
     }
 
 data Header = Header
@@ -26,20 +28,22 @@ data Header = Header
       unsync :: Bool,
       extended :: Bool,
       experimental :: Bool,
-      size :: Int
+      tagSize :: Int
       }
+
+data FrameBody = UniqueFileIdentifier C.ByteString C.ByteString | TextInformation Word8 C.ByteString | URL C.ByteString
 
 data ExtHeader = ExtHeader
     { extSize :: Int,
-    , crcData :: Bool,
-    , padding :: Int,
+      crcDataPresent :: Bool,
+      padding :: Int,
       crcData :: Maybe C.ByteString
     }
 
 data FrameHeader = FrameHeader
     {
     frameID :: C.ByteString,
-    size :: Int,
+    frameSize :: Int,
     tagAlterPreservation :: Bool,
     fileAlterPreservation :: Bool,
     readOnly :: Bool,
@@ -48,22 +52,6 @@ data FrameHeader = FrameHeader
     groupingIdentity :: Bool
     }
 
-data UniqueFileIdentifier = UniqueFileIdentifier
-    {
-    ownerIdentifier :: C.ByteString,
-    identifer :: C.ByteString
-    }
-
-data TextInformation = TextInformation
-    {
-    encoding :: Word8,
-    information :: C.ByteString
-    }
-
-data URL = URL
-    {
-    url :: C.ByteString
-    }
 
 -- assuming the indexing of testBit starts at the left (testbit [01] 1 -> true)
 toNumber :: C.ByteString -> Int -> Int -> Int
@@ -104,7 +92,7 @@ header = do
   majorVersion <- anyWord8
   minorVersion <- anyWord8
   flags <- anyWord8
-  size <- take 4
+  size <- AB.take 4
   let unsync = testBit flags 0
   let extended = testBit flags 1
   let experimental = testBit flags 2
@@ -119,20 +107,20 @@ id3v2 = do
 
 extHeader :: Parser ExtHeader
 extHeader = do
-    size <- take 4
+    size <- AB.take 4
     flags1 <- anyWord8
     flags2 <- anyWord8
-    padding <- take 4
+    padding <- AB.take 4
     let hSize = toNumber size 32 32
     let crcFlag = testBit flags1 0
     let pSize = toNumber padding 32 32
-    let crcData = if crcFlag then take 4 else Nothing
+    let crcData = if crcFlag then Just (AB.take 4) else Nothing
     return $ ExtHeader hSize crcFlag pSize crcData
 
 frameHeader :: Parser FrameHeader
 frameHeader = do
-  frameID <- take 4
-  size <- take 4
+  frameID <- AB.take 4
+  size <- AB.take 4
   flags1 <- anyWord8
   flags2 <- anyWord8
   let tagAlterPreservation = testBit flags1 0
@@ -144,19 +132,19 @@ frameHeader = do
   let parsedSize = toNumber size 32 32
   return $ FrameHeader frameID parsedSize tagAlterPreservation fileAlterPreservation readOnly compression encryption groupingIdentity
 
-frameBody :: FrameID -> Int -> Parser FrameBody
-frameBody UFID l = do
-    ownerIdentifier <- takeWhile notEmpty
-    identifier <- take (l - (C.length ownerIdentifier) -10) -- frame header has 10, so we subtract that
+frameBody :: String -> Int -> Parser FrameBody
+frameBody "UFID" l = do
+    ownerIdentifier <- AB.takeWhile notEmpty
+    identifier <- AB.take (l - (C.length ownerIdentifier) -10) -- frame header has 10, so we subtract that
     return $ UniqueFileIdentifier ownerIdentifier identifier
 
 -- since all text frames have the same format, it makes sense to have one parser
 -- for TALB, TIT2, etc.
-frameBody TEXT l = do
+frameBody "TEXT" l = do
   encoding <- anyWord8
-  info <- take (l -11) -- 10 for header and one for encoding
+  info <- AB.take (l -11) -- 10 for header and one for encoding
   return $ TEXT encoding info
 
-frameBody URL l = do
-  url <- take (l-10)
+frameBody "URL" l = do
+  url <- AB.take (l-10)
   return $ URL url
