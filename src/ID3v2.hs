@@ -18,7 +18,7 @@ data ID3v2 = ID3v2
     {
     tagHeader :: Header,
     tagExtHeader :: Maybe ExtHeader,
-    frames :: [(FrameHeader, FrameBody)]
+    frames :: [Frame]
     }
 
 data Header = Header
@@ -30,6 +30,12 @@ data Header = Header
       experimental :: Bool,
       tagSize :: Int
       }
+
+data Frame = Frame
+    {
+    fHeader :: FrameHeader,
+    fBody :: FrameBody
+    }
 
 data FrameBody = UniqueFileIdentifier C.ByteString C.ByteString | TextInformation Word8 C.ByteString | URL C.ByteString
 
@@ -68,6 +74,15 @@ toNumber bs remaining size =
 notEmpty :: Word8 -> Bool
 notEmpty w = (popCount w) > 0
 
+-- Gives type given id
+frameType :: C.ByteString -> String
+frameType bs = let a = C.unpack bs in frameTypeAux a
+
+frameTypeAux ('U':'F':'I':'D':[]) = "UFID"
+frameTypeAux ('T':'X':'X':'X':[]) = "USER"
+frameTypeAux ('T':xs) = "TEXT"
+frameTypeAux ('W':xs) = "URL"
+
 -- for weird header sizing, size should be 28 each time
 -- most significant bytes are not counted
 sizeToNumber :: C.ByteString -> Int -> Int
@@ -86,6 +101,13 @@ sizeToNumberAux bs size remaining bit power =
             sizeToNumberAux bs size (remaining-1) (bit+1) (power+1)
   else 0
 
+id3v2 :: Parser ID3v2
+id3v2 = do
+  h <- header
+  e <- if extended h then extHeader >>= Just else return Nothing
+  f <- many1 frame
+  return $ ID3v2 h e
+
 header :: Parser Header
 header = do
   string "ID3"
@@ -99,12 +121,6 @@ header = do
   let sizeResult = sizeToNumber size 28
   return $ Header majorVersion minorVersion unsync extended experimental sizeResult
 
-id3v2 :: Parser ID3v2
-id3v2 = do
-    h <- header
-    e <- if extended h then extHeader >>= Just else return Nothing
-    return $ ID3v2 h e
-
 extHeader :: Parser ExtHeader
 extHeader = do
     size <- AB.take 4
@@ -116,6 +132,12 @@ extHeader = do
     let pSize = toNumber padding 32 32
     let crcData = if crcFlag then Just (AB.take 4) else Nothing
     return $ ExtHeader hSize crcFlag pSize crcData
+
+frame :: Parser Frame
+frame = do
+  h <- frameHeader
+  b <- frameBody (frameType h) (size h)
+  return Frame h b
 
 frameHeader :: Parser FrameHeader
 frameHeader = do
