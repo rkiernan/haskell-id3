@@ -3,6 +3,10 @@
 module ID3v2
     ( ID3v2
     , id3v2
+    , Header
+    , header
+    , FrameHeader
+    , frameHeader
     ) where
 
 import Prelude hiding (take, takeWhile)
@@ -138,3 +142,31 @@ frameBody "TEXT" l = do
 frameBody "URL" l = do
     url <- take (l)
     return $ URL url
+
+
+form = show . B.takeWhile (\c -> c >= 20 && c < 127)
+
+instance Show Header where
+    show t =
+        ("Major Version: " ++ (show $ majorVersion t)) ++"\n"++
+        ("Minor Version: " ++ (show $ minorVersion t)) ++"\n"++
+        ("Unsync: " ++ (show $ unsync t))              ++"\n"++
+        ("Experimental: " ++ (show $ experimental t))  ++"\n"++
+        ("Tag Size: " ++ (show $ tagSize t))
+
+instance Show FrameHeader where
+    show t =
+          ("Frame ID: " ++ (form $ frameID t)) ++"\n"++
+          ("Frame Size: " ++ (show $ frameSize t)) ++"\n"++
+          ("Tag Alter Preservation: " ++ (show $ tagAlterPreservation t)) ++"\n"++
+          ("File Alter Preservation: " ++ (show $ fileAlterPreservation t)) ++"\n"++
+          ("Read Only: " ++ (show $ readOnly t)) ++"\n"++
+          ("Compressed: " ++ (show $ compression t)) ++"\n"++
+          ("Encryption: " ++ (show $ encryption t)) ++"\n"++
+          ("Grouping Identity: " ++ (show $ groupingIdentity t))
+
+instance Show FrameBody where
+    show t = case t of
+        TextInformation e text ->
+            ("Encoding: " ++ (show $ e)) ++"\n"++
+            ("Text Information: " ++ (form $ text))
