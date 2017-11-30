@@ -88,13 +88,14 @@ frameTypeAux ('W':xs) = "URL"
 sizeToNumber :: C.ByteString -> Int -> Int
 sizeToNumber bs size = sizeToNumberAux bs size size 1 0
 
+sizeToNumberAux :: C.ByteString -> Int -> Int -> Int -> Int -> Int
 sizeToNumberAux bs size remaining bit power =
   if remaining > 0 then
     if bit == 8
       then
         sizeToNumberAux bs size (remaining-1) 1 power
       else
-        if testBit bs (remaining-1)
+        if (testBit bs (remaining-1))
           then
             2^(power) + sizeToNumberAux bs size (remaining-1) (bit+1) (power+1)
           else
@@ -104,7 +105,7 @@ sizeToNumberAux bs size remaining bit power =
 id3v2 :: Parser ID3v2
 id3v2 = do
   h <- header
-  e <- if extended h then extHeader >>= Just else return Nothing
+  e <- if extended h then extHeader >>= return . Just else return Nothing
   f <- many1 frame
   return $ ID3v2 h e f
 
@@ -130,14 +131,14 @@ extHeader = do
     let hSize = toNumber size 32 32
     let crcFlag = testBit flags1 0
     let pSize = toNumber padding 32 32
-    let crcData = if crcFlag then Just (AB.take 4) else Nothing
+    crcData <- if crcFlag then (AB.take 4) >>= return . Just else return Nothing
     return $ ExtHeader hSize crcFlag pSize crcData
 
 frame :: Parser Frame
 frame = do
   h <- frameHeader
-  b <- frameBody (frameType h) (size h)
-  return Frame h b
+  b <- frameBody (frameType (frameID h)) (frameSize h)
+  return $ Frame h b
 
 frameHeader :: Parser FrameHeader
 frameHeader = do
@@ -165,7 +166,7 @@ frameBody "UFID" l = do
 frameBody "TEXT" l = do
   encoding <- anyWord8
   info <- AB.take (l -1) -- 10 for header and one for encoding
-  return $ TEXT encoding info
+  return $ TextInformation encoding info
 
 frameBody "URL" l = do
   url <- AB.take (l)
