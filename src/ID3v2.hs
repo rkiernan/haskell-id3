@@ -60,15 +60,15 @@ data FrameHeader = FrameHeader
 
 
 -- assuming the indexing of testBit starts at the left (testbit [01] 1 -> true)
-toNumber :: C.ByteString -> Int -> Int -> Int
-toNumber bs remaining size =
-  if remaining > 0 then
-    if testBit bs (remaining-1)
-      then
-        2^(size-remaining) + toNumber bs (remaining-1) size
-      else
-        toNumber bs (remaining-1) size
-  else 0
+--toNumber :: C.ByteString -> Int -> Int -> Int
+--toNumber bs remaining size =
+--  if remaining > 0 then
+--    if testBit bs (remaining-1)
+--      then
+--        2^(size-remaining) + toNumber bs (remaining-1) size
+--      else
+--        toNumber bs (remaining-1) size
+--  else 0
 
 -- popCount from data.bits, gives set bits
 notEmpty :: Word8 -> Bool
@@ -85,22 +85,46 @@ frameTypeAux ('W':xs) = "URL"
 
 -- for weird header sizing, size should be 28 each time
 -- most significant bytes are not counted
-sizeToNumber :: C.ByteString -> Int -> Int
-sizeToNumber bs size = sizeToNumberAux bs size size 1 0
+--sizeToNumber :: C.ByteString -> Int -> Int
+--sizeToNumber bs size = sizeToNumberAux bs size size 1 0
 
-sizeToNumberAux :: C.ByteString -> Int -> Int -> Int -> Int -> Int
-sizeToNumberAux bs size remaining bit power =
-  if remaining > 0 then
-    if bit == 8
-      then
-        sizeToNumberAux bs size (remaining-1) 1 power
-      else
-        if (testBit bs (remaining-1))
-          then
-            2^(power) + sizeToNumberAux bs size (remaining-1) (bit+1) (power+1)
-          else
-            sizeToNumberAux bs size (remaining-1) (bit+1) (power+1)
-  else 0
+--sizeToNumberAux :: C.ByteString -> Int -> Int -> Int -> Int -> Int
+--sizeToNumberAux bs size remaining bit power =
+--  if remaining > 0 then
+--    if bit == 8
+--      then
+--        sizeToNumberAux bs size (remaining-1) 1 power
+--      else
+--        if (Data.Bits.testBit bs (remaining-1))
+--          then
+--            2^(power) + sizeToNumberAux bs size (remaining-1) (bit+1) (power+1)
+--          else
+--            sizeToNumberAux bs size (remaining-1) (bit+1) (power+1)
+--  else 0
+
+sizeToNumber :: Word8 -> Word8 -> Word8 -> Word8 -> Int
+sizeToNumber s1 s2 s3 s4 = (byteSize s1 24 0) +
+                           (byteSize s2 16 0) +
+                           (byteSize s3 8 0) +
+                           (byteSize s4 0 0)
+
+sizeToNumberSpecial :: Word8 -> Word8 -> Word8 -> Word8 -> Int
+sizeToNumberSpecial s1 s2 s3 s4 = (byteSizeSpecial s1 21 0) +
+                                  (byteSizeSpecial s2 14 0) +
+                                  (byteSizeSpecial s3 7 0) +
+                                  (byteSizeSpecial s4 0 0)
+
+byteSize :: Word8 -> Int -> Int -> Int
+byteSize b pow pos =
+  if pos < 0 then 0
+    else if (testBit b pos)
+      then 2^ (pow) + byteSize b (pow+1) (pos-1)
+      else byteSize b (pow+1) (pos-1)
+
+byteSizeSpecial :: Word8 -> Int -> Int -> Int
+byteSizeSpecial b pow pos = if pos < 1 then 0 else if testBit b pos
+  then 2^(pow) + byteSize b (pow+1) (pos-1)
+  else byteSize b (pow+1) (pos-1)
 
 id3v2 :: Parser ID3v2
 id3v2 = do
@@ -115,22 +139,31 @@ header = do
   majorVersion <- anyWord8
   minorVersion <- anyWord8
   flags <- anyWord8
-  size <- AB.take 4
+  size1 <- anyWord8
+  size2 <- anyWord8
+  size3 <- anyWord8
+  size4 <- anyWord8
   let unsync = testBit flags 0
   let extended = testBit flags 1
   let experimental = testBit flags 2
-  let sizeResult = sizeToNumber size 28
+  let sizeResult = sizeToNumberSpecial size1 size2 size3 size4
   return $ Header majorVersion minorVersion unsync extended experimental sizeResult
 
 extHeader :: Parser ExtHeader
 extHeader = do
-    size <- AB.take 4
+    size1 <- anyWord8
+    size2 <- anyWord8
+    size3 <- anyWord8
+    size4 <- anyWord8
     flags1 <- anyWord8
     flags2 <- anyWord8
-    padding <- AB.take 4
-    let hSize = toNumber size 32 32
+    pad1 <- anyWord8
+    pad2 <- anyWord8
+    pad3 <- anyWord8
+    pad4 <- anyWord8
+    let hSize = sizeToNumber size1 size2 size3 size4
     let crcFlag = testBit flags1 0
-    let pSize = toNumber padding 32 32
+    let pSize = sizeToNumber pad1 pad2 pad3 pad4
     crcData <- if crcFlag then (AB.take 4) >>= return . Just else return Nothing
     return $ ExtHeader hSize crcFlag pSize crcData
 
@@ -143,7 +176,10 @@ frame = do
 frameHeader :: Parser FrameHeader
 frameHeader = do
   frameID <- AB.take 4
-  size <- AB.take 4
+  size1 <- anyWord8
+  size2 <- anyWord8
+  size3 <- anyWord8
+  size4 <- anyWord8
   flags1 <- anyWord8
   flags2 <- anyWord8
   let tagAlterPreservation = testBit flags1 0
@@ -152,7 +188,7 @@ frameHeader = do
   let compression = testBit flags2 0
   let encryption = testBit flags2 1
   let groupingIdentity = testBit flags2 2
-  let parsedSize = toNumber size 32 32
+  let parsedSize = sizeToNumber size1 size2 size3 size4
   return $ FrameHeader frameID parsedSize tagAlterPreservation fileAlterPreservation readOnly compression encryption groupingIdentity
 
 frameBody :: String -> Int -> Parser FrameBody
