@@ -15,8 +15,11 @@ cabal-version:       >=1.10
 
 library
   hs-source-dirs:      src
-  exposed-modules:     ID3v1, ID3v1.Genre, Tag, ID3v1_2, ID3v2
-  build-depends:       base >= 4.7 && < 5, bytestring, attoparsec
+  exposed-modules:
+    ID3v1, ID3v1.Genre, ID3v1_2,
+    Tag, 
+    ID3v2, ID3v2.Sync
+  build-depends:       base >= 4.7 && < 5, bytestring, attoparsec, binary
   default-language:    Haskell2010
 
 executable id3tag-exe
