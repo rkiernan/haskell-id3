@@ -27,12 +27,12 @@ syncInteger n =
 
 --  two functions come from cereal package innards (roll/unroll)
 wordsToInteger :: [Word8] -> Integer
-wordsToInteger = foldr unstep 0
+wordsToInteger = foldr unstep 0 . reverse
   where
     unstep b a = a `shiftL` 8 .|. fromIntegral b
 
 integerToWords :: Integer -> [Word8]
-integerToWords = unfoldr step
+integerToWords = reverse . unfoldr step
   where
     step 0 = Nothing
     step i = Just (fromIntegral i, i `shiftR` 8)
