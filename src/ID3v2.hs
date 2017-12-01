@@ -7,6 +7,7 @@ module ID3v2
     , header
     , FrameHeader
     , frameHeader
+    , encodeV2
     ) where
 
 import Prelude hiding (take, takeWhile)
@@ -15,6 +16,8 @@ import Data.Word (Word8)
 import Data.Maybe (maybe)
 import qualified Data.ByteString.Char8 as C
 import qualified Data.ByteString as B
+import qualified Data.ByteString.Lazy as L
+import Data.ByteString.Builder as BD
 import Data.Bits
 
 import Tag
@@ -31,6 +34,7 @@ data Header = Header
     {
     majorVersion :: Word8,
     minorVersion :: Word8,
+    headerFlags :: Word8,
     unsync :: Bool,
     extended :: Bool,
     experimental :: Bool,
@@ -48,6 +52,8 @@ data FrameBody = UniqueFileIdentifier C.ByteString C.ByteString | TextInformatio
 
 data ExtHeader = ExtHeader
     { extSize :: Integer,
+      extHeaderFlags1 :: Word8,
+      extHeaderFlags2 :: Word8,
       crcDataPresent :: Bool,
       padding :: Integer,
       crcData :: Maybe C.ByteString
@@ -57,9 +63,11 @@ data FrameHeader = FrameHeader
     {
     frameID :: C.ByteString,
     frameSize :: Integer,
+    frameFlags1 :: Word8,
     tagAlterPreservation :: Bool,
     fileAlterPreservation :: Bool,
     readOnly :: Bool,
+    frameFlags2 :: Word8,
     compression :: Bool,
     encryption :: Bool,
     groupingIdentity :: Bool
@@ -97,7 +105,7 @@ header = do
     let extend = testBit flags 1
     let exper  = testBit flags 2
     size <- unsynchronise <$> count 4 anyWord8
-    return $ Header majorv minorv unsync extend exper size
+    return $ Header majorv minorv flags unsync extend exper size
 
 extHeader :: Parser ExtHeader
 extHeader = do
@@ -107,7 +115,7 @@ extHeader = do
     psize <- wordsToInteger <$> count 4 anyWord8
     let crcFlag = testBit flags1 0
     crcData <- if crcFlag then (take 4) >>= return . Just else return Nothing
-    return $ ExtHeader hsize crcFlag psize crcData
+    return $ ExtHeader hsize flags1 flags2 crcFlag psize crcData
 
 frame :: Parser Frame
 frame = do
@@ -127,7 +135,7 @@ frameHeader = do
     let compression = testBit flags2 0
     let encryption = testBit flags2 1
     let groupingIdentity = testBit flags2 2
-    return $ FrameHeader frameID size tagAlterPreservation fileAlterPreservation readOnly compression encryption groupingIdentity
+    return $ FrameHeader frameID size flags1 tagAlterPreservation fileAlterPreservation readOnly flags2 compression encryption groupingIdentity
 
 frameBody :: String -> Int -> Parser FrameBody
 frameBody "UFID" l = do
@@ -151,6 +159,15 @@ frameBody "PRIV" l = do
     privateData <- take (l - (C.length ownerIdentifier))
     return $ Private ownerIdentifier privateData
 
+encodeV2 :: ID3v2 -> L.ByteString
+encodeV2 = toLazyByteString . renderV2
+
+renderV2 :: ID3v2 -> Builder
+renderV2 tag = mconcat ((string8 "ID3"):
+    (BD.word8 $ majorVersion $ tagHeader tag):
+    (BD.word8 $ minorVersion $ tagHeader tag):
+    (BD.word8 $ headerFlags  $ tagHeader tag):
+    (BD.byteString $ B.pack $ synchronise $ tagSize $ tagHeader tag):[])
 
 form = show . B.takeWhile (\c -> c >= 20 && c < 127)
 
