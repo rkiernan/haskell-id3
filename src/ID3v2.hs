@@ -43,7 +43,8 @@ data Frame = Frame
     fBody :: FrameBody
     }
 
-data FrameBody = UniqueFileIdentifier C.ByteString C.ByteString | TextInformation Word8 C.ByteString | URL C.ByteString
+data FrameBody = UniqueFileIdentifier C.ByteString C.ByteString | TextInformation Word8 C.ByteString
+    | URL C.ByteString | Private C.ByteString C.ByteString
 
 data ExtHeader = ExtHeader
     { extSize :: Integer,
@@ -72,10 +73,12 @@ notEmpty w = (popCount w) > 0
 frameType :: C.ByteString -> String
 frameType s = frameType' $ C.unpack s
   where
-    frameType' "UFID" = "UFID"
-    frameType' "TXXX" = "USER"
+    frameType' "UFID"  = "UFID"
+    frameType' "TXXX"  = "USER"
     frameType' ('T':_) = "TEXT"
     frameType' ('W':_) = "URL"
+    frameType' "PRIV"  = "PRIV"
+    frameType' _       = "TEXT"
 
 id3v2 :: Parser ID3v2
 id3v2 = do
@@ -143,6 +146,11 @@ frameBody "URL" l = do
     url <- take (l)
     return $ URL url
 
+frameBody "PRIV" l = do
+    ownerIdentifier <- takeWhile notEmpty
+    privateData <- take (l - (C.length ownerIdentifier))
+    return $ Private ownerIdentifier privateData
+
 
 form = show . B.takeWhile (\c -> c >= 20 && c < 127)
 
@@ -165,8 +173,23 @@ instance Show FrameHeader where
           ("Encryption: " ++ (show $ encryption t)) ++"\n"++
           ("Grouping Identity: " ++ (show $ groupingIdentity t))
 
+instance Show Frame where
+    show t =
+        (show $ fHeader t) ++"\n"++
+        (show $ fBody t)
+
 instance Show FrameBody where
     show t = case t of
         TextInformation e text ->
             ("Encoding: " ++ (show $ e)) ++"\n"++
             ("Text Information: " ++ (form $ text))
+        Private o d ->
+            ("Owner Identifier: " ++ (show $ o))
+
+instance Show ID3v2 where
+    show t =
+        (show $ tagHeader t )  ++"\n"++
+        (showEach $ frames t )
+        where
+            showEach []   = ""
+            showEach (x:xs) = (show x) ++"\n\n"++ (showEach xs)
