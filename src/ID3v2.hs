@@ -17,76 +17,66 @@ import Data.Maybe (maybe)
 import qualified Data.ByteString.Char8 as C
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Lazy as L
+import qualified Data.Text as T
 import Data.ByteString.Builder as BD
 import Data.Bits
 
 import Tag
 import ID3v2.Sync
+import ID3v2.Encoding
 
 data ID3v2 = ID3v2
-    {
-    tagHeader :: Header,
-    tagExtHeader :: Maybe ExtHeader,
-    frames :: [Frame]
+    { tagHeader :: Header
+    , tagExtHeader :: Maybe ExtHeader
+    , frames :: [Frame]
     }
 
 data Header = Header
-    {
-    majorVersion :: Word8,
-    minorVersion :: Word8,
-    headerFlags :: Word8,
-    unsync :: Bool,
-    extended :: Bool,
-    experimental :: Bool,
-    tagSize :: Integer
+    { majorVersion :: Word8
+    , minorVersion :: Word8
+    , headerFlags :: Word8
+    , unsync :: Bool
+    , extended :: Bool
+    , experimental :: Bool
+    , tagSize :: Integer
+    }
+
+data ExtHeader = ExtHeader
+    { extSize :: Integer
+    , extHeaderFlags1 :: Word8
+    , extHeaderFlags2 :: Word8
+    , crcDataPresent :: Bool
+    , padding :: Integer
+    , crcData :: Maybe C.ByteString
     }
 
 data Frame = Frame
-    {
-    fHeader :: FrameHeader,
-    fBody :: FrameBody
-    }
-
-data FrameBody = UniqueFileIdentifier C.ByteString C.ByteString | TextInformation Word8 C.ByteString
-    | URL C.ByteString | Private C.ByteString C.ByteString
-
-data ExtHeader = ExtHeader
-    { extSize :: Integer,
-      extHeaderFlags1 :: Word8,
-      extHeaderFlags2 :: Word8,
-      crcDataPresent :: Bool,
-      padding :: Integer,
-      crcData :: Maybe C.ByteString
+    { fHeader :: FrameHeader
+    , fBody :: FrameBody
     }
 
 data FrameHeader = FrameHeader
-    {
-    frameID :: C.ByteString,
-    frameSize :: Integer,
-    frameFlags1 :: Word8,
-    tagAlterPreservation :: Bool,
-    fileAlterPreservation :: Bool,
-    readOnly :: Bool,
-    frameFlags2 :: Word8,
-    compression :: Bool,
-    encryption :: Bool,
-    groupingIdentity :: Bool
+    { frameID :: String
+    , frameSize :: Integer
+    , frameFlags1 :: Word8
+    , tagAlterPreservation :: Bool
+    , fileAlterPreservation :: Bool
+    , readOnly :: Bool
+    , frameFlags2 :: Word8
+    , compression :: Bool
+    , encryption :: Bool
+    , groupingIdentity :: Bool
     }
+
+data FrameBody = 
+      UFID T.Text [Word8]
+    | Text Encoding T.Text
+    | URL T.Text
+    | PRIV T.Text [Word8]
 
 -- popCount from data.bits, gives set bits
 notEmpty :: Word8 -> Bool
 notEmpty w = (popCount w) > 0
-
--- Gives type given id
-frameType :: C.ByteString -> String
-frameType s = frameType' $ C.unpack s
-  where
-    frameType' "UFID"  = "UFID"
-    frameType' "TXXX"  = "USER"
-    frameType' ('T':_) = "TEXT"
-    frameType' ('W':_) = "URL"
-    frameType' "PRIV"  = "PRIV"
-    frameType' _       = "TEXT"
 
 id3v2 :: Parser ID3v2
 id3v2 = do
@@ -120,12 +110,12 @@ extHeader = do
 frame :: Parser Frame
 frame = do
     h <- frameHeader
-    b <- frameBody (frameType $ frameID h) (fromIntegral $ frameSize h)
+    b <- frameBody (frameID h)
     return $ Frame h b
 
 frameHeader :: Parser FrameHeader
 frameHeader = do
-    frameID <- take 4
+    frameID <- C.unpack <$> take 4
     size <- wordsToInteger <$> count 4 anyWord8
     flags1 <- anyWord8
     flags2 <- anyWord8
@@ -137,27 +127,27 @@ frameHeader = do
     let groupingIdentity = testBit flags2 2
     return $ FrameHeader frameID size flags1 tagAlterPreservation fileAlterPreservation readOnly flags2 compression encryption groupingIdentity
 
-frameBody :: String -> Int -> Parser FrameBody
-frameBody "UFID" l = do
-    ownerIdentifier <- takeWhile notEmpty
-    identifier <- take (l - (C.length ownerIdentifier))
-    return $ UniqueFileIdentifier ownerIdentifier identifier
+frameBody :: String -> Parser FrameBody
+frameBody "UFID" = do
+    id <- parseText Latin
+    identifier <- many' anyWord8
+    return $ UFID id identifier
 
 -- since all text frames have the same format, it makes sense to have one parser
 -- for TALB, TIT2, etc.
-frameBody "TEXT" l = do
-    encoding <- anyWord8
-    info <- take (l -1) -- 10 for header and one for encoding
-    return $ TextInformation encoding info
+frameBody "TEXT" = do
+    enco <- parseEncoding
+    info <- parseText enco
+    return $ Text enco info
 
-frameBody "URL" l = do
-    url <- take (l)
+frameBody "URL" = do
+    url <- parseText Latin --URLs always use ISO-8859-1
     return $ URL url
 
-frameBody "PRIV" l = do
-    ownerIdentifier <- takeWhile notEmpty
-    privateData <- take (l - (C.length ownerIdentifier))
-    return $ Private ownerIdentifier privateData
+frameBody "PRIV" = do
+    id <- parseText Latin
+    privateData <- many' anyWord8
+    return $ PRIV id privateData
 
 encodeV2 :: ID3v2 -> L.ByteString
 encodeV2 = toLazyByteString . renderV2
@@ -181,7 +171,7 @@ instance Show Header where
 
 instance Show FrameHeader where
     show t =
-          ("Frame ID: " ++ (form $ frameID t)) ++"\n"++
+          ("Frame ID: " ++ (frameID t)) ++"\n"++
           ("Frame Size: " ++ (show $ frameSize t)) ++"\n"++
           ("Tag Alter Preservation: " ++ (show $ tagAlterPreservation t)) ++"\n"++
           ("File Alter Preservation: " ++ (show $ fileAlterPreservation t)) ++"\n"++
@@ -197,10 +187,9 @@ instance Show Frame where
 
 instance Show FrameBody where
     show t = case t of
-        TextInformation e text ->
-            ("Encoding: " ++ (show $ e)) ++"\n"++
-            ("Text Information: " ++ (form $ text))
-        Private o d ->
+        Text e text ->
+            ("Text Information: " ++ (show text))
+        PRIV o d ->
             ("Owner Identifier: " ++ (show $ o))
 
 instance Show ID3v2 where

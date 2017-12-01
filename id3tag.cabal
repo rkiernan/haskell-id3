@@ -18,8 +18,9 @@ library
   exposed-modules:
     ID3v1, ID3v1.Genre, ID3v1_2,
     Tag, 
-    ID3v2, ID3v2.Sync
-  build-depends:       base >= 4.7 && < 5, bytestring, attoparsec, binary
+    ID3v2, ID3v2.Sync, ID3v2.Encoding
+  build-depends:       base >= 4.7 && < 5, bytestring, attoparsec, binary, 
+                       text
   default-language:    Haskell2010
 
 executable id3tag-exe

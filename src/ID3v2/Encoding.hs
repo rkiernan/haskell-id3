@@ -1,7 +1,7 @@
 {-# LANGUAGE LambdaCase #-}
 
 module ID3v2.Encoding
-    ( Encoding
+    ( Encoding (..)
     , getEncoding
     , getEncValue
     , parseEncoding
