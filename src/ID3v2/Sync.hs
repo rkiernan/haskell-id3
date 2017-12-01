@@ -9,7 +9,7 @@ module ID3v2.Sync
 
 import Data.List
 import Data.Bits
-import Data.Word
+import Data.Word (Word8)
 
 unsyncInteger :: Integer -> Integer
 unsyncInteger n = 
@@ -25,20 +25,20 @@ syncInteger n =
     .|. (n .&. 0x1fc000)  `shiftL` 2
     .|. (n .&. 0xfe00000) `shiftL` 3
 
---  two functions come from cereal package innards (roll/unroll)
+-- function comes from cereal package innards
 wordsToInteger :: [Word8] -> Integer
 wordsToInteger = foldr unstep 0 . reverse
   where
     unstep b a = a `shiftL` 8 .|. fromIntegral b
 
-integerToWords :: Integer -> [Word8]
-integerToWords = reverse . unfoldr step
+-- convert n to [Word8] in BE of length s
+integerToWords :: Int -> Integer -> [Word8]
+integerToWords s n = map (fromInteger . ($ n) . f) $ reverse [0..(s-1)]
   where
-    step 0 = Nothing
-    step i = Just (fromIntegral i, i `shiftR` 8)
+    f l = \n -> (n `shiftR` (l*8)) .&. 0xff
 
 unsynchronise :: [Word8] -> Integer
 unsynchronise = unsyncInteger . wordsToInteger
 
-synchronise :: Integer -> [Word8]
-synchronise = integerToWords . syncInteger
+synchronise :: Int -> Integer -> [Word8]
+synchronise s = integerToWords s . syncInteger

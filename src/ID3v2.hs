@@ -167,7 +167,7 @@ renderV2 tag = mconcat ((string8 "ID3"):
     (BD.word8 $ majorVersion $ tagHeader tag):
     (BD.word8 $ minorVersion $ tagHeader tag):
     (BD.word8 $ headerFlags  $ tagHeader tag):
-    (BD.byteString $ B.pack $ synchronise $ tagSize $ tagHeader tag):[])
+    (BD.byteString $ B.pack $ synchronise 4 $ tagSize $ tagHeader tag):[])
 
 form = show . B.takeWhile (\c -> c >= 20 && c < 127)
 
