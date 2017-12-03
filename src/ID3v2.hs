@@ -20,6 +20,7 @@ import qualified Data.ByteString.Lazy as L
 import qualified Data.Text as T
 import Data.ByteString.Builder as BD
 import Data.Bits
+import Data.Text.Encoding
 
 import Tag
 import ID3v2.Sync
@@ -134,7 +135,7 @@ frameBody "UFID" l = do
     return $ UFID id identifier
 
 -- for TALB, TIT2, etc.
-frameBody "TEXT" l = do
+frameBody ('T':_) l = do
     enco <- parseEncoding
     info <- parseText enco (Just l)
     return $ Text enco info
@@ -148,15 +149,70 @@ frameBody "PRIV" l = do
     privateData <- many' anyWord8
     return $ PRIV id privateData
 
+frameBody _ l = do
+    enco <- parseEncoding
+    info <- parseText enco (Just l)
+    return $ Text enco info
+
 encodeV2 :: ID3v2 -> L.ByteString
 encodeV2 = toLazyByteString . renderV2
 
 renderV2 :: ID3v2 -> Builder
-renderV2 tag = mconcat ((string8 "ID3"):
-    (BD.word8 $ majorVersion $ tagHeader tag):
-    (BD.word8 $ minorVersion $ tagHeader tag):
-    (BD.word8 $ headerFlags  $ tagHeader tag):
-    (BD.byteString $ B.pack $ synchronise 4 $ tagSize $ tagHeader tag):[])
+renderV2 tag =
+    case (tagExtHeader tag) of
+        Nothing ->
+            mconcat ((string8 "ID3"):
+            (BD.word8 $ majorVersion $ tagHeader tag):
+            (BD.word8 $ minorVersion $ tagHeader tag):
+            (BD.word8 $ headerFlags  $ tagHeader tag):
+            (BD.byteString $ B.pack $ synchronise 4 $ tagSize $ tagHeader tag):
+            (renderFrames (frames tag)))
+        _ ->
+            mconcat ((string8 "ID3"):
+            (BD.word8 $ majorVersion $ tagHeader tag):
+            (BD.word8 $ minorVersion $ tagHeader tag):
+            (BD.word8 $ headerFlags  $ tagHeader tag):
+            (BD.byteString $ B.pack $ synchronise 4 $ tagSize $ tagHeader tag):[])
+
+renderFrames :: [Frame] -> [Builder]
+renderFrames []     = []
+renderFrames (x:xs) = (renderFrame x):(renderFrames xs)
+
+renderFrame :: Frame -> Builder
+renderFrame f = mconcat ((renderFrameHeader (fHeader f)):(renderFrameBody (fBody f)):[])
+
+renderFrameHeader :: FrameHeader -> Builder
+renderFrameHeader fh =
+    mconcat $
+    ((string8 $ frameID fh):
+    (BD.byteString $ B.pack $ integerToWords 4 (frameSize fh)):
+    (BD.word8 $ frameFlags1 fh):
+    (BD.word8 $ frameFlags2 fh):[])
+
+renderFrameBody :: FrameBody -> Builder
+renderFrameBody fb = case fb of
+    UFID t b ->
+        mconcat $
+        (BD.byteString $ C.pack $ T.unpack t):
+        (BD.byteString $ C.singleton '0'):
+        ((BD.byteString $ B.pack b):[])
+    Text e t -> case e of
+        Latin ->
+            mconcat $
+            (BD.byteString $ C.singleton '0'):
+            ((BD.byteString $ C.pack $ T.unpack t):[])
+        Utf16Bom ->
+            mconcat $
+            (BD.byteString $ C.singleton '1'):
+            ((BD.byteString $ encodeUtf16BE t):[])
+    URL t    ->
+        (BD.byteString $ C.pack $ T.unpack t)
+    PRIV t b ->
+        mconcat $
+        (BD.byteString $ C.pack $ T.unpack t):
+        (BD.byteString $ C.singleton '0'):
+        ((BD.byteString $ B.pack b):[])
+
 
 form = show . B.takeWhile (\c -> c >= 20 && c < 127)
 
