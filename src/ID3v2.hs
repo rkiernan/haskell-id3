@@ -70,10 +70,10 @@ data FrameHeader = FrameHeader
     }
 
 data FrameBody = 
-      UFID T.Text [Word8]
+      UFID T.Text B.ByteString
     | Text Encoding T.Text
     | URL T.Text
-    | PRIV T.Text [Word8]
+    | PRIV T.Text B.ByteString
 
 -- popCount from data.bits, gives set bits
 notEmpty :: Word8 -> Bool
@@ -131,7 +131,7 @@ frameHeader = do
 frameBody :: String -> Int -> Parser FrameBody
 frameBody "UFID" l = do
     id <- parseText Latin Nothing
-    identifier <- many' anyWord8
+    identifier <- take (l - T.length id)
     return $ UFID id identifier
 
 -- for TALB, TIT2, etc.
@@ -146,8 +146,8 @@ frameBody "URL" l = do
 
 frameBody "PRIV" l = do
     id <- parseText Latin Nothing
-    privateData <- many' anyWord8
-    return $ PRIV id ( privateData)
+    private <- take (l - T.length id)
+    return $ PRIV id private
 
 frameBody _ l = do
     enco <- parseEncoding
@@ -195,7 +195,7 @@ renderFrameBody fb = case fb of
         mconcat $
         (BD.byteString $ C.pack $ T.unpack t):
         (BD.word8 (0x00)):
-        ((BD.byteString $ B.pack b):[])
+        [BD.byteString b]
     Text e t -> case e of
         Latin ->
             mconcat $
@@ -213,7 +213,7 @@ renderFrameBody fb = case fb of
         mconcat $
         (BD.byteString $ C.pack $ T.unpack t):
         (BD.word8 (0x00)):
-        ((BD.byteString $ B.pack b):[])
+        [BD.byteString b]
 
 
 form = show . B.takeWhile (\c -> c >= 20 && c < 127)
