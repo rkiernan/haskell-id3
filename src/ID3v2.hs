@@ -147,7 +147,7 @@ frameBody "URL" l = do
 frameBody "PRIV" l = do
     id <- parseText Latin Nothing
     privateData <- many' anyWord8
-    return $ PRIV id privateData
+    return $ PRIV id ( privateData)
 
 frameBody _ l = do
     enco <- parseEncoding
@@ -194,23 +194,25 @@ renderFrameBody fb = case fb of
     UFID t b ->
         mconcat $
         (BD.byteString $ C.pack $ T.unpack t):
-        (BD.byteString $ C.singleton '0'):
+        (BD.word8 (0x00)):
         ((BD.byteString $ B.pack b):[])
     Text e t -> case e of
         Latin ->
             mconcat $
-            (BD.byteString $ C.singleton '0'):
+            (BD.word8 (0x00)):
             ((BD.byteString $ C.pack $ T.unpack t):[])
         Utf16Bom ->
             mconcat $
-            (BD.byteString $ C.singleton '1'):
+            (BD.word8 (0x01)):
+            (BD.word8 (0xfe)):
+            (BD.word8 (0xff)):
             ((BD.byteString $ encodeUtf16BE t):[])
     URL t    ->
         (BD.byteString $ C.pack $ T.unpack t)
     PRIV t b ->
         mconcat $
         (BD.byteString $ C.pack $ T.unpack t):
-        (BD.byteString $ C.singleton '0'):
+        (BD.word8 (0x00)):
         ((BD.byteString $ B.pack b):[])
 
 
@@ -246,6 +248,8 @@ instance Show FrameBody where
             ("Text Information: " ++ (show text))
         PRIV o d ->
             ("Owner Identifier: " ++ (show $ o))
+        _ ->
+            ("Unsupported show frame")
 
 instance Show ID3v2 where
     show t =

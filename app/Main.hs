@@ -10,7 +10,7 @@ import ID3v2
 
 main :: IO ()
 main = do
-    runParser id3v2 "res/test.tag"
+    runParser id3v2 "res/billieJean.mp3"
 
 runParser :: (Show a) => Parser a -> FilePath -> IO ()
 runParser p f = do

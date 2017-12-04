@@ -55,8 +55,8 @@ parseText e l = case (e,l) of
     (Utf16,    Just n) -> decodeUtf16BE <$> take n
     (Utf16Bom, Just n) -> do
         b <- parseBom
-        if b then decodeUtf16BE <$> take n
-             else decodeUtf16LE <$> take n
+        if b then decodeUtf16BE <$> take (n-2)
+             else decodeUtf16LE <$> take (n-2)
 
 parseNull1 :: Parser B.ByteString
 parseNull1 = takeTill (== 0)
