@@ -137,7 +137,7 @@ frameBody "UFID" l = do
 -- for TALB, TIT2, etc.
 frameBody ('T':_) l = do
     enco <- parseEncoding
-    info <- parseText enco (Just (l-3))
+    info <- parseText enco (Just (l-1))
     return $ Text enco info
 
 frameBody "URL" l = do
