@@ -110,7 +110,7 @@ extHeader = do
 frame :: Parser Frame
 frame = do
     h <- frameHeader
-    b <- frameBody (frameID h)
+    b <- frameBody (frameID h) (fromIntegral $ frameSize h)
     return $ Frame h b
 
 frameHeader :: Parser FrameHeader
@@ -127,25 +127,24 @@ frameHeader = do
     let groupingIdentity = testBit flags2 2
     return $ FrameHeader frameID size flags1 tagAlterPreservation fileAlterPreservation readOnly flags2 compression encryption groupingIdentity
 
-frameBody :: String -> Parser FrameBody
-frameBody "UFID" = do
-    id <- parseText Latin
+frameBody :: String -> Int -> Parser FrameBody
+frameBody "UFID" l = do
+    id <- parseText Latin Nothing
     identifier <- many' anyWord8
     return $ UFID id identifier
 
--- since all text frames have the same format, it makes sense to have one parser
 -- for TALB, TIT2, etc.
-frameBody "TEXT" = do
+frameBody "TEXT" l = do
     enco <- parseEncoding
-    info <- parseText enco
+    info <- parseText enco (Just l)
     return $ Text enco info
 
-frameBody "URL" = do
-    url <- parseText Latin --URLs always use ISO-8859-1
+frameBody "URL" l = do
+    url <- parseText Latin Nothing --URLs always use ISO-8859-1
     return $ URL url
 
-frameBody "PRIV" = do
-    id <- parseText Latin
+frameBody "PRIV" l = do
+    id <- parseText Latin Nothing
     privateData <- many' anyWord8
     return $ PRIV id privateData
 

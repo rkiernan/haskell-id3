@@ -8,9 +8,10 @@ module ID3v2.Encoding
     , parseText
     ) where
 
+import Prelude hiding (take)
 import qualified Data.ByteString as B
 import Data.Attoparsec.ByteString
-import Data.Text
+import Data.Text hiding (take)
 import Data.Text.Encoding
 import Data.Word (Word8)
 
@@ -38,12 +39,24 @@ getEncValue = \case
 parseEncoding :: Parser Encoding
 parseEncoding = getEncoding <$> satisfy (< 4)
 
-parseText :: Encoding -> Parser Text
-parseText = \case 
-    Latin    -> decodeLatin1  <$> parseNull1
-    Utf8     -> decodeUtf8    <$> parseNull1
-    Utf16    -> decodeUtf16BE <$> parseNull2
-    Utf16Bom -> parseBom
+-- parse text in an encoding with optional byte-length
+-- 
+parseText :: Encoding -> Maybe Int -> Parser Text
+parseText e l = case (e,l) of
+    (Latin,    Nothing) -> decodeLatin1  <$> parseNull1
+    (Utf8,     Nothing) -> decodeUtf8    <$> parseNull1
+    (Utf16,    Nothing) -> decodeUtf16BE <$> parseNull2
+    (Utf16Bom, Nothing) -> do
+        b <- parseBom
+        if b then decodeUtf16BE <$> parseNull2
+             else decodeUtf16LE <$> parseNull2
+    (Latin,    Just n) -> decodeLatin1  <$> take n
+    (Utf8,     Just n) -> decodeLatin1  <$> take n
+    (Utf16,    Just n) -> decodeUtf16BE <$> take n
+    (Utf16Bom, Just n) -> do
+        b <- parseBom
+        if b then decodeUtf16BE <$> take n
+             else decodeUtf16LE <$> take n
 
 parseNull1 :: Parser B.ByteString
 parseNull1 = takeTill (== 0)
@@ -57,12 +70,12 @@ parseNull2 = do
         (b1,b2) -> parseNull2 >>= 
                    (\e -> return $ B.append (B.pack [b1,b2]) e)
 
-parseBom :: Parser Text
+-- Parses Byte Order Mark for UTF-16 true is BE false is LE
+parseBom :: Parser Bool
 parseBom = do
     b1 <- satisfy (>= 0xfe)
     b2 <- satisfy (\b -> b >= 0xfe && b /= b1)
     case (b1,b2) of
-        (0xff, 0xfe) -> decodeUtf16LE <$> parseNull2
-        (0xfe, 0xff) -> decodeUtf16BE <$> parseNull2
-        _ ->  decodeUtf16BE <$> parseNull2 -- should never happen
-
+        (0xfe, 0xff) -> return True
+        (0xff, 0xfe) -> return False
+        _ ->  return True -- should never happen
