@@ -137,7 +137,7 @@ frameBody "UFID" l = do
 -- for TALB, TIT2, etc.
 frameBody ('T':_) l = do
     enco <- parseEncoding
-    info <- parseText enco (Just l)
+    info <- parseText enco (Just (l-3))
     return $ Text enco info
 
 frameBody "URL" l = do
@@ -151,7 +151,7 @@ frameBody "PRIV" l = do
 
 frameBody _ l = do
     enco <- parseEncoding
-    info <- parseText enco (Just l)
+    info <- parseText enco (Just (l-1))
     return $ Text enco info
 
 encodeV2 :: ID3v2 -> L.ByteString
