@@ -76,6 +76,7 @@ data FrameBody =
     | Text Encoding T.Text
     | URL T.Text
     | PRIV T.Text B.ByteString
+    | Unknown B.ByteString
 
 id3v2 :: Parser ID3v2
 id3v2 = do
@@ -148,9 +149,8 @@ frameBody "PRIV" l = do
     return $ PRIV id private
 
 frameBody _ l = do
-    enco <- parseEncoding
-    info <- parseText enco (Just (l-1))
-    return $ Text enco info
+    info <- take l
+    return $ Unknown info
 
 encodeV2 :: ID3v2 -> L.ByteString
 encodeV2 = toLazyByteString . renderV2
