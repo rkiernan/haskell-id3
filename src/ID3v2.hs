@@ -11,16 +11,18 @@ module ID3v2
     ) where
 
 import Prelude hiding (take, takeWhile)
-import Data.Attoparsec.ByteString
+import Data.Char (isUpper, isDigit)
 import Data.Word (Word8)
 import Data.Maybe (maybe)
+import Data.Bits
+import Data.Attoparsec.ByteString
+import qualified Data.Attoparsec.ByteString.Char8 as AC
 import qualified Data.ByteString.Char8 as C
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Lazy as L
 import qualified Data.Text as T
-import Data.ByteString.Builder as BD
-import Data.Bits
 import Data.Text.Encoding
+import Data.ByteString.Builder as BD
 
 import Tag
 import ID3v2.Sync
@@ -75,10 +77,6 @@ data FrameBody =
     | URL T.Text
     | PRIV T.Text B.ByteString
 
--- popCount from data.bits, gives set bits
-notEmpty :: Word8 -> Bool
-notEmpty w = (popCount w) > 0
-
 id3v2 :: Parser ID3v2
 id3v2 = do
     h <- header
@@ -116,7 +114,7 @@ frame = do
 
 frameHeader :: Parser FrameHeader
 frameHeader = do
-    frameID <- C.unpack <$> take 4
+    frameID <- count 4 $ AC.satisfy (\c -> isUpper c || isDigit c)
     size <- wordsToInteger <$> count 4 anyWord8
     flags1 <- anyWord8
     flags2 <- anyWord8
@@ -215,6 +213,8 @@ renderFrameBody fb = case fb of
         (BD.word8 (0x00)):
         [BD.byteString b]
 
+instance Tag ID3v2 where
+    version _ = "ID3v2"
 
 form = show . B.takeWhile (\c -> c >= 20 && c < 127)
 
