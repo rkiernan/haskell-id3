@@ -4,6 +4,7 @@ module ID3v1
     ( ID3v1
     , emptyID3v1
     , id3v1
+    , encodeV1
     ) where
 
 import Prelude hiding (take)
@@ -12,6 +13,8 @@ import Data.Maybe (maybe)
 import qualified Data.ByteString.Char8 as C
 import qualified Data.ByteString as B
 import Data.Attoparsec.ByteString
+import Data.ByteString.Builder as BD
+import qualified Data.ByteString.Lazy as L
 
 import ID3v1.Genre
 import Tag
@@ -31,6 +34,31 @@ emptyID3v1 :: ID3v1
 emptyID3v1 = ID3v1 e e e y e Nothing 255
     where e = B.pack $ replicate 30 0
           y = B.pack $ replicate 4 0
+
+encodeV1 :: ID3v1 -> L.ByteString
+encodeV1 = toLazyByteString . renderv1
+
+renderv1 :: ID3v1 -> Builder 
+renderv1 tag = case (track tag) of 
+    Nothing -> 
+        mconcat ((string8 "TAG"):
+        (BD.byteString (title tag)):
+        (BD.byteString (artist tag)):
+        (BD.byteString (album tag)):
+        (BD.byteString (year tag)):
+        (BD.byteString (comment tag)):
+        (BD.word8 (genre tag)):[])
+    Just t ->
+        mconcat ((string8 "TAG"):
+        (BD.byteString (title tag)):
+        (BD.byteString (artist tag)):
+        (BD.byteString (album tag)):
+        (BD.byteString (year tag)):
+        (BD.byteString (comment tag)):
+        (BD.word8 (0x00)):
+        (BD.word8 (t)):
+        (BD.word8 (genre tag)):[])
+
 
 id3v1 :: Parser ID3v1
 id3v1 = do
@@ -69,3 +97,119 @@ instance Show ID3v1 where
         where
             -- convert bytestring to initial printable ascii chars
             form = show . B.takeWhile (\c -> c >= 20 && c < 127)
+
+addEmpty :: C.ByteString -> Int -> C.ByteString  
+addEmpty bs i = if (C.length bs) == i then bs else addEmpty (C.append bs (B.singleton 0x00)) i
+
+
+changeTitle :: ID3v1 -> String -> Maybe ID3v1
+changeTitle t s = 
+    if length s < 31 then let q = addEmpty (C.pack s) 30 in 
+        Just $ ID3v1 
+        (q)
+        (artist t)
+        (album t)
+        (year t)
+        (comment t)
+        (track t)
+        (genre t)
+    else 
+        Nothing 
+
+changeArtist :: ID3v1 -> String -> Maybe ID3v1
+changeArtist t s = 
+    if length s < 31 then let q = addEmpty (C.pack s) 30 in 
+        Just $ ID3v1 
+        (title t)
+        (q)
+        (album t)
+        (year t)
+        (comment t)
+        (track t)
+        (genre t)
+    else 
+        Nothing 
+
+changeAlbum :: ID3v1 -> String -> Maybe ID3v1
+changeAlbum t s = 
+    if length s < 31 then let q = addEmpty (C.pack s) 30 in 
+        Just $ ID3v1 
+        (title t)
+        (artist t)
+        (q)
+        (year t)
+        (comment t)
+        (track t)
+        (genre t)
+    else 
+        Nothing 
+
+changeYear :: ID3v1 -> String -> Maybe ID3v1
+changeYear t s = 
+    if length s == 4 then let q = C.pack s in 
+        Just $ ID3v1 
+        (title t)
+        (artist t)
+        (album t)
+        (q)
+        (comment t)
+        (track t)
+        (genre t)
+    else 
+        Nothing 
+
+changeComment :: ID3v1 -> String -> Maybe ID3v1
+changeComment t s = 
+    case (track t) of 
+        Nothing ->
+            if length s < 31 then let q = addEmpty (C.pack s) 30 in 
+                Just $ ID3v1 
+                (title t)
+                (artist t)
+                (album t)
+                (year t)
+                (q)
+                (track t)
+                (genre t)
+            else 
+                Nothing 
+        _ ->
+            if length s < 31 then let q = addEmpty (C.pack s) 28 in 
+                Just $ ID3v1 
+                (title t)
+                (artist t)
+                (album t)
+                (year t)
+                (q)
+                (track t)
+                (genre t)
+            else 
+                Nothing
+
+changeTrack :: ID3v1 -> Int -> Maybe ID3v1
+changeTrack t s = 
+    if s < 256 then let q = fromInteger $ toInteger s in 
+        Just $ ID3v1 
+        (title t)
+        (artist t)
+        (album t)
+        (year t)
+        (comment t)
+        (Just q)
+        (genre t)
+    else 
+        Nothing 
+
+changeGenre :: ID3v1 -> Int -> Maybe ID3v1
+changeGenre t s = 
+    if s < 256 then let q = fromInteger $ toInteger s in 
+        Just $ ID3v1 
+        (title t)
+        (artist t)
+        (album t)
+        (year t)
+        (comment t)
+        (track t)
+        (q)
+    else 
+        Nothing 
