@@ -13,8 +13,8 @@ import Test.Hspec
 main :: IO ()
 main = hspec $ do
 	describe "Verify ID3v1 parse is accurate" $ do 
-		r <- runParser' id3v1 "../res/id3v1-0.tag"
-		1 `shouldBe` 1 
+		it "has the right title" $ do 
+			1 `shouldBe` 1 
 
 runParser' :: Parser a -> FilePath -> IO (Maybe a)
 runParser' p f = do
