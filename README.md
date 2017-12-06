@@ -1,4 +1,4 @@
-# id3tag
+# A haskell implementation of an ID3 tag parser using the attoparsec bytestring library.
 
 ### Contributors
 
