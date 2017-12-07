@@ -93,19 +93,15 @@ main = hspec $ do
             bs <- B.readFile "res/id3v1-0.tag"
             case parseOnly id3v1 bs of 
                 Left  s -> 1 `shouldBe` 0
-                Right r -> let t = setArtist "Ryan" r in case t of 
-                    Nothing -> 1 `shouldBe` 0
-                    Just p  -> case (getArtist p ) of 
-                        Nothing -> 1 `shouldBe` 1 
+                Right r -> let t = setArtist "Ryan" r in case (getArtist t) of 
+                        Nothing -> 1 `shouldBe` 1
                         Just x  -> x `shouldBe` (addEmpty (C.pack "Ryan") 30)
 
         it "Correct album edit" $ do 
             bs <- B.readFile "res/id3v1-0.tag"
             case parseOnly id3v1 bs of 
                 Left  s -> 1 `shouldBe` 0
-                Right r -> let t = setAlbum "Ryan's Album" r in case t of 
-                    Nothing -> 1 `shouldBe` 0
-                    Just p  -> case (getAlbum p ) of 
+                Right r -> let t = setAlbum "Ryan's Album" r in case (getAlbum t ) of 
                         Nothing -> 1 `shouldBe` 1 
                         Just x  -> x `shouldBe` (addEmpty (C.pack "Ryan's Album") 30)
 
@@ -113,9 +109,7 @@ main = hspec $ do
             bs <- B.readFile "res/id3v1-0.tag"
             case parseOnly id3v1 bs of 
                 Left  s -> 1 `shouldBe` 0
-                Right r -> let t = setYear "2000" r in case t of 
-                    Nothing -> 1 `shouldBe` 0
-                    Just p  -> case (getYear p ) of 
+                Right r -> let t = setYear "2000" r in case (getYear t ) of 
                         Nothing -> 1 `shouldBe` 1 
                         Just x  -> x `shouldBe` (C.pack "2000")  
 
@@ -154,11 +148,8 @@ main = hspec $ do
 			bs <- B.readFile "res/id3v1-0.tag"
 			case parseOnly id3v1 bs of 
 				Left  s -> 1 `shouldBe` 0
-				Right r -> let t = fromJust $ changeArtist r "Ryan" in case t of 
-					Nothing -> 1 `shouldBe` 0
-					Just p  -> let t = fromJust $ changeYear p "2000" in case t of 
-						Nothing -> 1 `shouldBe` 0
-						Just q  -> B.writeFile "res/test.tag" (Data.ByteString.Lazy.toStrict $ encodeV1 q)
+				Right r -> let t = setArtist "Ryan" r in
+				    let q = setYear "2000" t in B.writeFile "res/test.tag" (Data.ByteString.Lazy.toStrict $ encodeV1 q)
 
 		it "Correct artist write after edit" $ do 
 			bs <- B.readFile "res/test.tag"
