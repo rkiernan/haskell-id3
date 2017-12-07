@@ -87,8 +87,10 @@ instance Show ID3v1 where
             -- convert bytestring to initial printable ascii chars
             form = show . B.takeWhile (\c -> c >= 20 && c < 127)
 
-addEmpty :: C.ByteString -> Int -> C.ByteString  
-addEmpty bs i = if (C.length bs) == i then bs else addEmpty (C.append bs (B.singleton 0x00)) i
+addEmpty :: Int -> C.ByteString -> C.ByteString  
+addEmpty i bs =
+    let diff = i - (C.length bs) in 
+    C.append bs (B.replicate diff 0)
 
 instance Tag ID3v1 where
     version t =
@@ -121,4 +123,4 @@ instance Tag ID3v1 where
         t <- track x
         return $ fromInteger $ toInteger t
 
-sform n = C.pack . P.take n
+sform n = addEmpty n . C.pack . P.take n
