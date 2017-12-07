@@ -8,9 +8,6 @@ module ID3v2
     , FrameHeader
     , frameHeader
     , encodeV2
-    , getTitle
-    , getArtist
-    , getAlbum
     ) where
 
 import Prelude hiding (take, takeWhile)
