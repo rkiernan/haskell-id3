@@ -152,6 +152,9 @@ main = hspec $ do
 			case parseOnly id3v1 bs of 
 				Left  s -> 1 `shouldBe` 0
 				Right r -> (ID3v1.getYear r ) `shouldBe` (C.pack "2000") 
+
+		it "Correct year write after edit" $ do 
+			1 `shouldBe` 0
  
 
 addEmpty :: C.ByteString -> Int -> C.ByteString  
