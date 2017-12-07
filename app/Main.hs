@@ -20,11 +20,17 @@ import ID3v2
 
 main :: IO ()
 main = do
-	runEncoder1 id3v1 "res/id3v1-0.tag"
-	getLine
-	runParser id3v1 "res/test.tag"
-	getLine 
-	runParser id3v1 "res/id3v1-0.tag"
+    getLine
+    runParser id3v1 "res/id3v1-0.tag"
+
+    getLine
+    runParser id3v2 "res/freeBird.mp3"
+
+    getLine
+    runEncoder2 id3v2 "res/freeBird.mp3"
+
+    getLine
+    runParser id3v2 "res/test.tag"
 
 runParser :: (Show a) => Parser a -> FilePath -> IO ()
 runParser p f = do
@@ -42,14 +48,14 @@ runParser' p f = do
 
 runEncoder2 :: Parser ID3v2 -> FilePath -> IO ()
 runEncoder2 p f = do
-	bs <- B.readFile f
-	case parseOnly p bs of
-		Left  s -> putStrLn s
-		Right r -> B.writeFile "res/test.tag" (Data.ByteString.Lazy.toStrict $ encodeV2 r)
+    bs <- B.readFile f
+    case parseOnly p bs of
+        Left  s -> putStrLn s
+        Right r -> B.writeFile "res/test.tag" (Data.ByteString.Lazy.toStrict $ encodeV2 r)
 
 runEncoder1 :: Parser ID3v1 -> FilePath -> IO ()
 runEncoder1 p f = do
-	bs <- B.readFile f
-	case parseOnly p bs of
-		Left  s -> putStrLn s
-		Right r -> B.writeFile "res/test.tag" (Data.ByteString.Lazy.toStrict $ encodeV1 r)
+    bs <- B.readFile f
+    case parseOnly p bs of
+        Left  s -> putStrLn s
+        Right r -> B.writeFile "res/test.tag" (Data.ByteString.Lazy.toStrict $ encodeV1 r)

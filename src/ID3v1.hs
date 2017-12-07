@@ -2,26 +2,12 @@
 
 module ID3v1
     ( ID3v1
-    , emptyID3v1
     , id3v1
     , encodeV1
-    , changeTitle
-    , changeArtist
-    , changeAlbum
-    , changeYear
-    , changeComment
-    , changeTrack
-    , changeGenre
-    , getTitle
-    , getArtist
-    , getAlbum
-    , getYear
-    , getComment
-    , getTrack
-    , getGenre
     ) where
 
 import Prelude hiding (take)
+import qualified Prelude as P (take)
 import Data.Word (Word8)
 import Data.Maybe (maybe)
 import qualified Data.ByteString.Char8 as C
@@ -43,11 +29,6 @@ data ID3v1 = ID3v1
     , genre   :: Word8
     } deriving Eq
 --TODO add support for ID3v1.2 which adds extended tag
-
-emptyID3v1 :: ID3v1
-emptyID3v1 = ID3v1 e e e y e Nothing 255
-    where e = B.pack $ replicate 30 0
-          y = B.pack $ replicate 4 0
 
 encodeV1 :: ID3v1 -> L.ByteString
 encodeV1 = toLazyByteString . renderv1
@@ -93,12 +74,6 @@ id3v1 = do
                 (0,_) -> yestrack
                 (_,_) -> notrack
 
-instance Tag ID3v1 where
-    version t =
-        case (track t) of
-            Just _ -> "ID3v1.1"
-            Nothing -> "ID3v1"
-
 instance Show ID3v1 where
     show t =
         ("Title: " ++ (form $ title t))                ++"\n"++
@@ -115,136 +90,35 @@ instance Show ID3v1 where
 addEmpty :: C.ByteString -> Int -> C.ByteString  
 addEmpty bs i = if (C.length bs) == i then bs else addEmpty (C.append bs (B.singleton 0x00)) i
 
+instance Tag ID3v1 where
+    version t =
+        case (track t) of
+            Just _ -> "ID3v1.1"
+            Nothing -> "ID3v1"
 
-changeTitle :: ID3v1 -> String -> Maybe ID3v1
-changeTitle t s = 
-    if length s < 31 then let q = addEmpty (C.pack s) 30 in 
-        Just $ ID3v1 
-        (q)
-        (artist t)
-        (album t)
-        (year t)
-        (comment t)
-        (track t)
-        (genre t)
-    else 
-        Nothing 
+    emptyTag = ID3v1 e e e y e Nothing 255
+      where e = B.pack $ replicate 30 0
+            y = B.pack $ replicate 4 0
 
-changeArtist :: ID3v1 -> String -> Maybe ID3v1
-changeArtist t s = 
-    if length s < 31 then let q = addEmpty (C.pack s) 30 in 
-        Just $ ID3v1 
-        (title t)
-        (q)
-        (album t)
-        (year t)
-        (comment t)
-        (track t)
-        (genre t)
-    else 
-        Nothing 
+    setTitle  t x = x {title = sform 30 t}
+    setArtist a x = x {artist = sform 30 a}
+    setAlbum  a x = x {album = sform 30 a}
+    setYear   y x = x {year = sform 4 y}
+    setComment c x = 
+        case (track x) of Just _ -> x {comment = sform 28 c}
+                          Nothing -> x {comment = sform 30 c}
+    setGenre g x = x {genre = fromGenre g}
+    setTrack t x = x {comment = B.take 28 (comment x),
+                      track = Just . fromInteger . toInteger $ t}
+    
+    getTitle   = Just . title
+    getArtist  = Just . artist
+    getAlbum   = Just . album
+    getYear    = Just . year
+    getComment = Just . comment
+    getGenre   = toGenre . genre
+    getTrack x = do
+        t <- track x
+        return $ fromInteger $ toInteger t
 
-changeAlbum :: ID3v1 -> String -> Maybe ID3v1
-changeAlbum t s = 
-    if length s < 31 then let q = addEmpty (C.pack s) 30 in 
-        Just $ ID3v1 
-        (title t)
-        (artist t)
-        (q)
-        (year t)
-        (comment t)
-        (track t)
-        (genre t)
-    else 
-        Nothing 
-
-changeYear :: ID3v1 -> String -> Maybe ID3v1
-changeYear t s = 
-    if length s == 4 then let q = C.pack s in 
-        Just $ ID3v1 
-        (title t)
-        (artist t)
-        (album t)
-        (q)
-        (comment t)
-        (track t)
-        (genre t)
-    else 
-        Nothing 
-
-changeComment :: ID3v1 -> String -> Maybe ID3v1
-changeComment t s = 
-    case (track t) of 
-        Nothing ->
-            if length s < 31 then let q = addEmpty (C.pack s) 30 in 
-                Just $ ID3v1 
-                (title t)
-                (artist t)
-                (album t)
-                (year t)
-                (q)
-                (track t)
-                (genre t)
-            else 
-                Nothing 
-        _ ->
-            if length s < 31 then let q = addEmpty (C.pack s) 28 in 
-                Just $ ID3v1 
-                (title t)
-                (artist t)
-                (album t)
-                (year t)
-                (q)
-                (track t)
-                (genre t)
-            else 
-                Nothing
-
-changeTrack :: ID3v1 -> Int -> Maybe ID3v1
-changeTrack t s = 
-    if s < 256 then let q = fromInteger $ toInteger s in 
-        Just $ ID3v1 
-        (title t)
-        (artist t)
-        (album t)
-        (year t)
-        (comment t)
-        (Just q)
-        (genre t)
-    else 
-        Nothing 
-
-changeGenre :: ID3v1 -> Int -> Maybe ID3v1
-changeGenre t s = 
-    if s < 256 then let q = fromInteger $ toInteger s in 
-        Just $ ID3v1 
-        (title t)
-        (artist t)
-        (album t)
-        (year t)
-        (comment t)
-        (track t)
-        (q)
-    else 
-        Nothing 
-
-getTitle :: ID3v1 -> C.ByteString
-getTitle t = (title t)
-
-getArtist :: ID3v1 -> C.ByteString
-getArtist t = (artist t)
-
-getAlbum :: ID3v1 -> C.ByteString
-getAlbum t = (album t)
-
-getYear :: ID3v1 -> C.ByteString
-getYear t = (year t) 
-
-getComment :: ID3v1 -> C.ByteString
-getComment t = (comment t)
-
-getTrack :: ID3v1 -> Maybe Word8
-getTrack t = (track t)
-
-getGenre :: ID3v1 -> Word8
-getGenre t = (genre t)
+sform n = C.pack . P.take n

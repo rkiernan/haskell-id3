@@ -310,3 +310,4 @@ fromGenre = \case
     "Anime"                  -> 145
     "JPop"                   -> 146
     "Synthpop"               -> 147
+    _                        -> 255

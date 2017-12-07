@@ -216,8 +216,6 @@ renderFrameBody fb = case fb of
         (BD.word8 (0x00)):
         [BD.byteString b]
 
-instance Tag ID3v2 where
-    version _ = "ID3v2"
 
 form = show . B.takeWhile (\c -> c >= 20 && c < 127)
 
@@ -291,3 +289,21 @@ getAlbum t = case (getFrame t "TALB") of
     Nothing -> Nothing 
 
 
+{-instance Tag ID3v2 where
+    version _ = "ID3v2"
+    emptyTag = ID3v2 $
+        (Header 3 0 0 False False False 10)
+        Nothing
+        [Frame $
+            (FrameHeader "XXXX" 0 0 False False False 0 False False False)
+            (Unknown B.empty)
+        ]
+    
+    setTitle   =
+    setArtist  =
+    setAlbum   =
+    setYear    =
+    setComment =
+    setGenre   =
+    setTrack   =
+-}
