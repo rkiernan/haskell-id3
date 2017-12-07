@@ -76,6 +76,7 @@ data FrameBody =
     | Text Encoding T.Text
     | URL T.Text
     | PRIV T.Text B.ByteString
+    | COMM Encoding C.ByteString T.Text T.Text
     | Unknown B.ByteString
 
 id3v2 :: Parser ID3v2
@@ -148,6 +149,13 @@ frameBody "PRIV" l = do
     private <- take (l - T.length id)
     return $ PRIV id private
 
+frameBody "COMM" l = do
+    e <- parseEncoding 
+    lang <- take 3
+    ID3Text short _ s <- parseID3Text e Nothing 
+    long <- parseText e (Just (l-4-s))
+    return $ COMM e lang short long
+
 frameBody _ l = do
     info <- take l
     return $ Unknown info
@@ -212,6 +220,27 @@ renderFrameBody fb = case fb of
         (BD.byteString $ C.pack $ T.unpack t):
         (BD.word8 (0x00)):
         [BD.byteString b]
+    COMM e lang s l -> case e of 
+        Latin ->
+            mconcat $ 
+            ((BD.word8 (0x00)):
+            (BD.byteString lang):
+            (BD.byteString $ C.pack $ T.unpack s):
+            (BD.word8 (0x00)):
+            (BD.byteString $ C.pack $ T.unpack l):[])
+        Utf16Bom ->
+            mconcat $
+            ((BD.word8 (0x01)):
+            (BD.byteString lang):
+            (BD.word8 (0xfe)):
+            (BD.word8 (0xff)):
+            (BD.byteString $ encodeUtf16BE s):
+            (BD.word8 (0x00)):
+            (BD.word8 (0x00)):
+            (BD.word8 (0xfe)):
+            (BD.word8 (0xff)):
+            (BD.byteString $ encodeUtf16BE l):[])
+
 
 
 form = show . B.takeWhile (\c -> c >= 20 && c < 127)
@@ -246,6 +275,8 @@ instance Show FrameBody where
             ("Text Information: " ++ (show text))
         PRIV o d ->
             ("Owner Identifier: " ++ (show $ o))
+        COMM e lang s l -> 
+            ("Comment: " ++ (show l))
         _ ->
             ("Unsupported show frame")
 
@@ -264,27 +295,56 @@ getFrame t s = let f = (frames t) in findTag f s
         findTag (x:xs) s = let n = (frameID $ fHeader x) in
             if n == s then Just x else findTag xs s 
 
-getTitle :: ID3v2 -> Maybe T.Text 
+getTitle :: ID3v2 -> Maybe C.ByteString 
 getTitle t = case (getFrame t "TIT2") of 
     Just f -> case fBody f of 
-        Text e text -> Just text 
+        Text e text -> Just $ C.pack $ T.unpack text 
         _           -> Nothing 
     Nothing -> Nothing 
 
-getArtist :: ID3v2 -> Maybe T.Text 
+getArtist :: ID3v2 -> Maybe C.ByteString 
 getArtist t = case (getFrame t "TPE1") of 
     Just f -> case fBody f of 
-        Text e text -> Just text 
+        Text e text -> Just $ C.pack $ T.unpack text 
         _           -> Nothing 
     Nothing -> Nothing 
 
-getAlbum :: ID3v2 -> Maybe T.Text 
+getAlbum :: ID3v2 -> Maybe C.ByteString 
 getAlbum t = case (getFrame t "TALB") of 
     Just f -> case fBody f of 
-        Text e text -> Just text 
+        Text e text -> Just $ C.pack $ T.unpack text  
         _           -> Nothing 
     Nothing -> Nothing 
 
+getYear :: ID3v2 -> Maybe C.ByteString 
+getYear t = case (getFrame t "TYER") of 
+    Just f -> case fBody f of 
+        Text e text -> Just $ C.pack $ T.unpack text  
+        _           -> Nothing 
+    Nothing -> Nothing 
+
+getComment :: ID3v2 -> Maybe C.ByteString 
+getComment t = case (getFrame t "COMM") of 
+    Just f -> case fBody f of 
+        COMM e lang s l -> Just $ C.pack $ T.unpack l  
+        _           -> Nothing 
+    Nothing -> Nothing 
+
+getGenre :: ID3v2 -> Maybe C.ByteString 
+getGenre t = case (getFrame t "TCON") of 
+    Just f -> case fBody f of 
+        Text e text -> Just $ C.pack $ T.unpack text  
+        _           -> Nothing 
+    Nothing -> Nothing 
+
+getTrack :: ID3v2 -> Maybe C.ByteString 
+getTrack t = case (getFrame t "TRCK") of 
+    Just f -> case fBody f of 
+        Text e text -> Just $ C.pack $ T.unpack text  
+        _           -> Nothing 
+    Nothing -> Nothing  
+
+ 
 
 {-instance Tag ID3v2 where
     version _ = "ID3v2"
@@ -295,6 +355,14 @@ getAlbum t = case (getFrame t "TALB") of
             (FrameHeader "XXXX" 0 0 False False False 0 False False False)
             (Unknown B.empty)
         ]
+
+    getTitle   =
+    getArtist  =
+    getAlbum   =
+    getYear    =
+    getComment =
+    getGenre   = 
+    getTrack   = 
     
     setTitle   =
     setArtist  =
