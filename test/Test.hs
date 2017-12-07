@@ -76,11 +76,83 @@ main = hspec $ do
 				Left  s -> 1 `shouldBe` 0
 				Right r -> (ID3v2.getAlbum r ) `shouldBe` (Just $ T.pack "Thriller (Google Play Exclusive Version)")
 
+	describe "Verify ID3v1 editor" $ do 
+		it "Correct artist edit" $ do 
+			bs <- B.readFile "res/id3v1-0.tag"
+			case parseOnly id3v1 bs of 
+				Left  s -> 1 `shouldBe` 0
+				Right r -> let t = ID3v1.changeArtist r "Ryan" in case t of 
+					Nothing -> 1 `shouldBe` 0
+					Just p  -> ((ID3v1.getArtist p ) `shouldBe` (addEmpty (C.pack "Ryan") 30))
 
+		it "Correct album edit" $ do 
+			bs <- B.readFile "res/id3v1-0.tag"
+			case parseOnly id3v1 bs of 
+				Left  s -> 1 `shouldBe` 0
+				Right r -> let t = ID3v1.changeAlbum r "Ryan's Album" in case t of 
+					Nothing -> 1 `shouldBe` 0
+					Just p  -> ((ID3v1.getAlbum p ) `shouldBe` (addEmpty (C.pack "Ryan's Album") 30)) 
 
+		it "Correct year edit" $ do 
+			bs <- B.readFile "res/id3v1-0.tag"
+			case parseOnly id3v1 bs of 
+				Left  s -> 1 `shouldBe` 0
+				Right r -> let t = ID3v1.changeYear r "2000" in case t of 
+					Nothing -> 1 `shouldBe` 0
+					Just p  -> (ID3v1.getYear p ) `shouldBe`  (C.pack "2000") 
 
+	describe "Verify ID3v1 writer" $ do 
+		it "Correct title write" $ do 
+			bs <- B.readFile "res/id3v1-0.tag"
+			case parseOnly id3v1 bs of 
+				Left  s -> 1 `shouldBe` 0
+				Right r -> B.writeFile "res/test.tag" (Data.ByteString.Lazy.toStrict $ encodeV1 r)
+			bs' <- B.readFile "res/test.tag"
+			case parseOnly id3v1 bs' of 
+				Left  s -> 1 `shouldBe` 0
+				Right r -> ((ID3v1.getTitle r ) `shouldBe` (addEmpty (C.pack "Yellow Submarine") 30))  
 
+		it "Correct artist write" $ do 
+			bs <- B.readFile "res/test.tag"
+			case parseOnly id3v1 bs of 
+				Left  s -> 1 `shouldBe` 0
+				Right r -> ((ID3v1.getArtist r ) `shouldBe` (addEmpty (C.pack "Beatles") 30)) 
 
+		it "Correct album write" $ do 
+			bs <- B.readFile "res/test.tag"
+			case parseOnly id3v1 bs of 
+				Left  s -> 1 `shouldBe` 0
+				Right r -> ((ID3v1.getAlbum r ) `shouldBe` (addEmpty (C.pack "Revolver") 30)) 
+
+		it "Correct year write" $ do 
+			bs <- B.readFile "res/test.tag"
+			case parseOnly id3v1 bs of 
+				Left  s -> 1 `shouldBe` 0
+				Right r -> (ID3v1.getYear r ) `shouldBe`  (C.pack "1966") 
+
+	describe "Verify ID3v1 write after edit" $ do 
+		it "Working write after edit" $ do 
+			bs <- B.readFile "res/id3v1-0.tag"
+			case parseOnly id3v1 bs of 
+				Left  s -> 1 `shouldBe` 0
+				Right r -> let t = ID3v1.changeArtist r "Ryan" in case t of 
+					Nothing -> 1 `shouldBe` 0
+					Just p  -> let t = ID3v1.changeYear p "2000" in case t of 
+						Nothing -> 1 `shouldBe` 0
+						Just q  -> B.writeFile "res/test.tag" (Data.ByteString.Lazy.toStrict $ encodeV1 q)
+
+		it "Correct artist write after edit" $ do 
+			bs <- B.readFile "res/test.tag"
+			case parseOnly id3v1 bs of 
+				Left  s -> 1 `shouldBe` 0
+				Right r -> ((ID3v1.getArtist r ) `shouldBe` (addEmpty (C.pack "Ryan") 30)) 
+
+		it "Correct year write after edit" $ do 
+			bs <- B.readFile "res/test.tag"
+			case parseOnly id3v1 bs of 
+				Left  s -> 1 `shouldBe` 0
+				Right r -> (ID3v1.getYear r ) `shouldBe` (C.pack "2000") 
+ 
 
 addEmpty :: C.ByteString -> Int -> C.ByteString  
 addEmpty bs i = if (C.length bs) == i then bs else addEmpty (C.append bs (B.singleton 0x00)) i
