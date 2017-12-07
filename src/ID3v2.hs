@@ -8,6 +8,9 @@ module ID3v2
     , FrameHeader
     , frameHeader
     , encodeV2
+    , getTitle
+    , getArtist
+    , getAlbum
     ) where
 
 import Prelude hiding (take, takeWhile)
@@ -258,3 +261,33 @@ instance Show ID3v2 where
         where
             showEach []   = ""
             showEach (x:xs) = (show x) ++"\n\n"++ (showEach xs)
+
+getFrame :: ID3v2 -> String -> Maybe Frame 
+getFrame t s = let f = (frames t) in findTag f s
+    where 
+        findTag [] s     = Nothing 
+        findTag (x:xs) s = let n = (frameID $ fHeader x) in
+            if n == s then Just x else findTag xs s 
+
+getTitle :: ID3v2 -> Maybe T.Text 
+getTitle t = case (getFrame t "TIT2") of 
+    Just f -> case fBody f of 
+        Text e text -> Just text 
+        _           -> Nothing 
+    Nothing -> Nothing 
+
+getArtist :: ID3v2 -> Maybe T.Text 
+getArtist t = case (getFrame t "TPE1") of 
+    Just f -> case fBody f of 
+        Text e text -> Just text 
+        _           -> Nothing 
+    Nothing -> Nothing 
+
+getAlbum :: ID3v2 -> Maybe T.Text 
+getAlbum t = case (getFrame t "TALB") of 
+    Just f -> case fBody f of 
+        Text e text -> Just text 
+        _           -> Nothing 
+    Nothing -> Nothing 
+
+

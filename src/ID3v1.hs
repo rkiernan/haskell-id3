@@ -5,6 +5,20 @@ module ID3v1
     , emptyID3v1
     , id3v1
     , encodeV1
+    , changeTitle
+    , changeArtist
+    , changeAlbum
+    , changeYear
+    , changeComment
+    , changeTrack
+    , changeGenre
+    , getTitle
+    , getArtist
+    , getAlbum
+    , getYear
+    , getComment
+    , getTrack
+    , getGenre
     ) where
 
 import Prelude hiding (take)
@@ -213,3 +227,24 @@ changeGenre t s =
         (q)
     else 
         Nothing 
+
+getTitle :: ID3v1 -> C.ByteString
+getTitle t = (title t)
+
+getArtist :: ID3v1 -> C.ByteString
+getArtist t = (artist t)
+
+getAlbum :: ID3v1 -> C.ByteString
+getAlbum t = (album t)
+
+getYear :: ID3v1 -> C.ByteString
+getYear t = (year t) 
+
+getComment :: ID3v1 -> C.ByteString
+getComment t = (comment t)
+
+getTrack :: ID3v1 -> Maybe Word8
+getTrack t = (track t)
+
+getGenre :: ID3v1 -> Word8
+getGenre t = (genre t)
